@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# requires : curl, jq, gandi.cli, tr, sort, wc
+# requires : curl, jq, gandi.cli, tr, sort, wc, getopts
 
 DOMAIN=example.com
 HOST=my-server
@@ -10,6 +10,24 @@ INDEX=0
 
 PUBLIC_IPV4_PROVIDERS=(http://ifconfig.me/ip https://ipv4.lafibre.info/ip.php)
 PUBLIC_IPV4=
+
+while getopts ":d:h:t:" OPT; do
+	case ${OPT} in
+		d)
+			DOMAIN=${OPTARG}
+			;;
+		h)
+			HOST=${OPTARG}
+			;;
+		t)
+			TTL=${OPTARG}
+			;;
+		\?)
+			echo "usage : $0 [-d <domain>] [-h <host>] [-t <TTL>]" >&2
+			exit 255
+			;;
+	esac
+done
 
 for PUBPROV in ${PUBLIC_IPV4_PROVIDERS[@]}; do
 	while [ x"${PUBLIC_IPV4[${INDEX}]}" = "x" -a ${RETRY} -gt 0 ]; do
