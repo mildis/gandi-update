@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# requires : curl, jq, gandi.cli
+# requires : curl, jq, gandi.cli, tr, sort, wc
 
 DOMAIN=example.com
 HOST=my-server
