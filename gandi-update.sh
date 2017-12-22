@@ -7,11 +7,15 @@ HOST=my-server
 TTL=86400
 RETRY=5
 INDEX=0
+GANDI_API_KEY=
 
 PUBLIC_IPV4_PROVIDERS=(http://ifconfig.me/ip https://ipv4.lafibre.info/ip.php)
 PUBLIC_IPV4=
 
-while getopts ":d:h:t:" OPT; do
+GANDIV5_API=https://dns.api.gandi.net/api/v5
+
+
+while getopts ":d:h:k:t:" OPT; do
 	case ${OPT} in
 		d)
 			DOMAIN=${OPTARG}
@@ -19,11 +23,14 @@ while getopts ":d:h:t:" OPT; do
 		h)
 			HOST=${OPTARG}
 			;;
+		k)
+			GANDI_API_KEY=${OPTARG}
+			;;
 		t)
 			TTL=${OPTARG}
 			;;
 		\?)
-			echo "usage : $0 [-d <domain>] [-h <host>] [-t <TTL>]" >&2
+			echo "usage : $0 [-k <gandi API key>] [-d <domain>] [-h <host>] [-t <TTL>]" >&2
 			exit 255
 			;;
 	esac
@@ -44,15 +51,25 @@ if [ $(echo "${CURRENT_IPV4}"|wc -l) -ne 1 ]; then
 	exit 1
 fi
 
-GANDI_DNS=$(gandi record list -f json ${DOMAIN}|jq -r '.[]|select(.name == '\"${HOST}\"')|[.name, .ttl, .type, .value]|@tsv'|tr '\t' ' ')
-GANDI_IPV4=$(echo ${GANDI_DNS}|cut -d' ' -f4)
+if [ x"${GANDI_API_KEY}" != "x" ]; then
+	GANDI_IPV4=$(curl -s -H "X-API-Key:${GANDI_API_KEY}" ${GANDIV5_API}/domains/${DOMAIN}/records/${HOST}/A|jq -r '.rrset_values[]')
+else
+	GANDI_DNS=$(gandi record list -f json ${DOMAIN}|jq -r '.[]|select(.name == '\"${HOST}\"')|[.name, .ttl, .type, .value]|@tsv'|tr '\t' ' ')
+	GANDI_IPV4=$(echo ${GANDI_DNS}|cut -d' ' -f4)
+fi
+
 
 if [ -z "${CURRENT_IPV4}" ]; then
 	echo "ERROR : cannot find current IPv4" >&2
 	exit 2
 fi
 
-if [ -z "${GANDI_DNS}" -o -z "${GANDI_IPV4}" ]; then
+if [ -z "${GANDI_IPV4}" ]; then
+	echo "ERROR : cannot get Gandi informations" >&2
+	exit 3
+fi
+
+if [ x"${GANDI_API_KEY}" = "x" -a -z "${GANDI_DNS}" ]; then
 	echo "ERROR : cannot get Gandi informations" >&2
 	exit 3
 fi
@@ -62,6 +79,10 @@ if [ x"${CURRENT_IPV4}" = x"${GANDI_IPV4}" ]; then
 	exit 0
 else
 	echo "Updating ${GANDI_IPV4} to ${CURRENT_IPV4}" >&2
-	gandi record update -r "${GANDI_DNS}" --new-record "${HOST} ${TTL} A ${CURRENT_IPV4}" ${DOMAIN}
+	if [ x"${GANDI_API_KEY}" != "x" ]; then
+		curl -s -X PUT -H "Content-Type: application/json" -H "X-API-Key:${GANDI_API_KEY}" -d "{\"rrset_type\":\"A\",\"rrset_ttl\":\"${TTL}\",\"rrset_name\":\"${HOST}\",\"rrset_values\":[\"${CURRENT_IPV4}\"]}" ${GANDIV5_API}/domains/${DOMAIN}/records/${HOST}/A
+	else
+		gandi record update -r "${GANDI_DNS}" --new-record "${HOST} ${TTL} A ${CURRENT_IPV4}" ${DOMAIN}
+	fi
 fi
 
