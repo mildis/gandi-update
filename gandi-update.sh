@@ -75,7 +75,7 @@ if [ x"${GANDI_API_KEY}" = "x" -a -z "${GANDI_DNS}" ]; then
 fi
 
 if [ x"${CURRENT_IPV4}" = x"${GANDI_IPV4}" ]; then
-	echo "No update required" >&2
+	echo "No update required (${GANDI_IPV4})" >&2
 	exit 0
 else
 	echo "Updating ${GANDI_IPV4} to ${CURRENT_IPV4}" >&2
