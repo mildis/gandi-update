@@ -47,7 +47,7 @@ done
 CURRENT_IPV4=$(echo "${PUBLIC_IPV4[@]}"|tr ' ' '\n'|sort -u)
 
 if [ $(echo "${CURRENT_IPV4}"|wc -l) -ne 1 ]; then
-	echo "Not all IP found are the same :\n${CURRENT_IPV4}" >&2
+	logger "Not all IP found are the same :\n${CURRENT_IPV4}" >&2
 	exit 1
 fi
 
@@ -60,29 +60,29 @@ fi
 
 
 if [ -z "${CURRENT_IPV4}" ]; then
-	echo "ERROR : cannot find current IPv4" >&2
+	logger "ERROR : cannot find current IPv4" >&2
 	exit 2
 fi
 
 if [ -z "${GANDI_IPV4}" ]; then
-	echo "ERROR : cannot get Gandi informations" >&2
+	logger "ERROR : cannot get Gandi informations" >&2
 	exit 3
 fi
 
 if [ x"${GANDI_API_KEY}" = "x" -a -z "${GANDI_DNS}" ]; then
-	echo "ERROR : cannot get Gandi informations" >&2
+	logger "ERROR : cannot get Gandi informations" >&2
 	exit 3
 fi
 
 if [ x"${CURRENT_IPV4}" = x"${GANDI_IPV4}" ]; then
-	echo "No update required (${GANDI_IPV4})" >&2
+	logger "{\"message\": \"No update required\", \"current_ipv4\": \"${CURRENT_IPV4}\"}" >&2
 	exit 0
 else
-	echo "Updating ${GANDI_IPV4} to ${CURRENT_IPV4}" >&2
+	logger "{\"message\": \"Updating address\", \"previous_ipv4\": \"${GANDI_IPV4}\",  \"current_ipv4\": \"${CURRENT_IPV4}\"" >&2
 	if [ x"${GANDI_API_KEY}" != "x" ]; then
-		curl -s -X PUT -H "Content-Type: application/json" -H "X-API-Key:${GANDI_API_KEY}" -d "{\"rrset_type\":\"A\",\"rrset_ttl\":\"${TTL}\",\"rrset_name\":\"${HOST}\",\"rrset_values\":[\"${CURRENT_IPV4}\"]}" ${GANDIV5_API}/domains/${DOMAIN}/records/${HOST}/A
+		curl -s -X PUT -H "Content-Type: application/json" -H "X-API-Key:${GANDI_API_KEY}" -d "{\"rrset_type\":\"A\",\"rrset_ttl\":\"${TTL}\",\"rrset_name\":\"${HOST}\",\"rrset_values\":[\"${CURRENT_IPV4}\"]}" ${GANDIV5_API}/domains/${DOMAIN}/records/${HOST}/A 2>&1 | logger
 	else
-		gandi record update -r "${GANDI_DNS}" --new-record "${HOST} ${TTL} A ${CURRENT_IPV4}" ${DOMAIN}
+		gandi record update -r "${GANDI_DNS}" --new-record "${HOST} ${TTL} A ${CURRENT_IPV4}" ${DOMAIN} 2>&1 | logger
 	fi
 fi
 
